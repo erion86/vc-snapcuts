@@ -1,26 +1,196 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+/* ─────────────────────────────────────────────────────────────
+   DESIGN TOKENS — Light mode (default)
+   All colors stored as HSL channels (no hsl() wrapper)
+   so Tailwind's opacity modifier works: bg-primary/50
+───────────────────────────────────────────────────────────── */
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Backgrounds */
+    --bg:          38 40% 96%;       /* #FAF6EF cream */
+    --surface:     0  0% 100%;       /* #FFFFFF white */
+    --surface-alt: 34 38% 90%;       /* #F1E9DB light beige */
+    --border:      34 32% 85%;       /* #E7DDCB beige border */
+
+    /* Primary — Soft Pink */
+    --primary:       352 45% 77%;    /* #E3A9AE */
+    --primary-strong: 352 37% 69%;   /* #CE8F95 */
+    --primary-fg:    0 0% 100%;
+
+    /* Secondary — Sage Green */
+    --secondary:       100 18% 62%;  /* #9CAF8E */
+    --secondary-strong: 100 16% 53%; /* #7E9472 */
+    --secondary-fg:    0 0% 100%;
+
+    /* Text */
+    --ink:      30 12% 22%;          /* #332E29 warm charcoal */
+    --ink-soft: 28  9% 38%;          /* #6B635A muted */
+
+    /* Accent */
+    --sale:  16 38% 55%;             /* #C2735A terracotta */
+
+    /* Functional */
+    --ring:  352 45% 77%;
+    --radius: 0.75rem;
+  }
+
+  /* ── Dark mode — warm espresso, never cold black ── */
+  .dark {
+    --bg:          30 8% 10%;        /* #1C1A17 */
+    --surface:     30 8% 14%;        /* #26231F */
+    --surface-alt: 30 8% 18%;        /* #302C27 */
+    --border:      30 8% 22%;        /* #3A352F */
+
+    --primary:       352 40% 73%;    /* #D9A0A5 */
+    --primary-strong: 352 42% 65%;
+    --primary-fg:    30 8% 10%;
+
+    --secondary:       100 16% 62%;  /* #9AAE8B */
+    --secondary-strong: 100 18% 53%;
+    --secondary-fg:    30 8% 10%;
+
+    --ink:      34 24% 93%;          /* #F2ECE2 */
+    --ink-soft: 30 12% 68%;          /* #B5ABA0 */
+
+    --sale: 16 40% 62%;
+    --ring: 352 40% 73%;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ─────────────────────────────────────────────────────────────
+   BASE RESET & DEFAULTS
+───────────────────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    @apply scroll-smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Heading defaults */
+  h1, h2, h3, h4 {
+    @apply font-display text-ink;
+  }
+
+  /* Focus ring — accessible but brand-appropriate */
+  *:focus-visible {
+    outline: none; box-shadow: 0 0 0 2px hsl(var(--bg)), 0 0 0 4px hsl(var(--ring));
+  }
+
+  /* Smooth reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Scrollbar — subtle, brand-colored */
+  ::-webkit-scrollbar        { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track  { background: hsl(var(--bg)); }
+  ::-webkit-scrollbar-thumb  { background: hsl(var(--border)); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(var(--ink-soft)); }
+
+  /* Selection */
+  ::selection {
+    background: hsl(var(--primary) / 0.2);
+    color: hsl(var(--ink));
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   COMPONENT LAYER — reusable class combos
+───────────────────────────────────────────────────────────── */
+@layer components {
+  /* Kiss-cut signature device
+     A 2px offset "sticker outline" that's the brand's unique motif.
+     Use on featured cards, sale badges, category tiles.         */
+  .kiss-cut {
+    position: relative;
+  }
+  .kiss-cut::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border: 1.5px dashed hsl(var(--primary) / 0.4);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  /* Section wrapper */
+  .section {
+    @apply py-section px-4 md:px-6 lg:px-8;
+  }
+
+  /* Prose-width content container */
+  .container-narrow {
+    @apply max-w-2xl mx-auto;
+  }
+
+  /* Product grid */
+  .product-grid {
+    @apply grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 md:gap-4 lg:gap-6;
+  }
+
+  /* Horizontal snap scroll rail */
+  .snap-rail {
+    @apply flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .snap-rail::-webkit-scrollbar { display: none; }
+  .snap-rail > * { @apply snap-start flex-shrink-0; }
+
+  /* Announcement bar */
+  .announcement-bar {
+    @apply bg-primary/15 text-ink text-xs font-sans text-center py-2 px-4;
+    letter-spacing: 0.03em;
+  }
+
+  /* Washi-tape sale tag — slight tilt, brand feel */
+  .tag-sale {
+    @apply bg-sale text-white text-xs font-sans font-semibold px-2 py-0.5 rounded;
+    transform: rotate(-1.5deg);
+    transform-origin: left center;
+  }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    @apply bg-surface-alt rounded animate-pulse;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   UTILITY LAYER — one-off helpers
+───────────────────────────────────────────────────────────── */
+@layer utilities {
+  /* Paper grain texture overlay */
+  .texture-paper {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  }
+
+  /* Hide scrollbar, keep scrollable */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+
+  /* Stagger animation delays for child elements */
+  .stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger > *:nth-child(2) { animation-delay: 60ms; }
+  .stagger > *:nth-child(3) { animation-delay: 120ms; }
+  .stagger > *:nth-child(4) { animation-delay: 180ms; }
+  .stagger > *:nth-child(5) { animation-delay: 240ms; }
+  .stagger > *:nth-child(6) { animation-delay: 300ms; }
 }

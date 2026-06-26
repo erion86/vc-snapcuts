@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /products/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /categories/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid) || isAdmin();
+      allow delete: if isAdmin();
+
+      match /wishlist/{productId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    match /carts/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    match /orders/{orderId} {
+      allow read: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid ||
+         resource.data.email == request.auth.token.email ||
+         isAdmin());
+      allow create: if false;
+      allow update: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if resource.data.status == 'approved' || isAdmin() ||
+        (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin();
+    }
+
+    match /coupons/{code} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /newsletter/{email} {
+      allow create: if request.resource.data.email == email &&
+        request.resource.data.consent == true;
+      allow read, update, delete: if isAdmin();
+    }
+  }
+}

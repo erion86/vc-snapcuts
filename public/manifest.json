@@ -1,0 +1,10 @@
+{
+  "name": "V&C Snapcuts",
+  "short_name": "V&C Snapcuts",
+  "description": "Handmade planners, stickers, journals & scrapbooking supplies from the Philippines.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF6EF",
+  "theme_color": "#FAF6EF",
+  "lang": "en-PH"
+}
