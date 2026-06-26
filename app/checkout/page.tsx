@@ -312,11 +312,12 @@ export default function CheckoutPage() {
                 <div className="flex flex-col gap-6">
                   <h2 className="font-sans text-lg font-semibold text-ink">Payment</h2>
                   <p className="font-sans text-sm text-ink-soft leading-relaxed">
-                    You&apos;ll be redirected to PayMongo to pay securely via GCash, Maya, Card, or GrabPay.
+                    You&apos;ll be redirected to Xendit to pay securely via GCash, Maya, Card, or GrabPay.
                     Stock is reserved for 30 minutes once you continue to payment.
-                    {!process.env.NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY && (
+                    {!process.env.NEXT_PUBLIC_XENDIT_PUBLIC_KEY &&
+                      !process.env.NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY && (
                       <span className="block mt-2 text-xs">
-                        Demo mode: PayMongo keys not set — you&apos;ll go straight to the success page.
+                        Demo mode: no payment keys set — you&apos;ll go straight to the success page.
                       </span>
                     )}
                   </p>

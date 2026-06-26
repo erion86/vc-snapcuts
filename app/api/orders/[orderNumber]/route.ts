@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchOrderByNumberFromFirestore } from "@/lib/db/firestore-orders";
 import { getOrderByNumber } from "@/lib/orders/store";
 
 interface RouteParams {
@@ -6,7 +7,10 @@ interface RouteParams {
 }
 
 export async function GET(_request: Request, { params }: RouteParams) {
-  const order = getOrderByNumber(params.orderNumber);
+  const order =
+    (await fetchOrderByNumberFromFirestore(params.orderNumber)) ??
+    getOrderByNumber(params.orderNumber);
+
   if (!order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }

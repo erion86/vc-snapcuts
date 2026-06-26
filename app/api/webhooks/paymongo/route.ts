@@ -21,7 +21,7 @@ export async function POST(request: Request) {
         if (order && order.status !== "paid") {
           try {
             await fulfillOrderInventory(orderId, order.coupon?.code ?? null);
-            markOrderPaid(orderId, data?.id);
+            markOrderPaid(orderId, data?.id, "paymongo");
           } catch (err) {
             const message = err instanceof Error ? err.message : "Fulfillment failed";
             updateOrder(orderId, {

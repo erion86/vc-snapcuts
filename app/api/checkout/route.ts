@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { calculateCartTotals } from "@/lib/cart/calculate";
 import { validateCheckoutCart } from "@/lib/checkout/validate-checkout";
 import { fulfillOrderInventory, toStockLineItems } from "@/lib/checkout/fulfill-order";
-import { createPendingOrder, markOrderPaid, updateOrder } from "@/lib/orders/store";
+import { saveOrderToFirestore, patchOrderInFirestore } from "@/lib/db/firestore-orders";
+import { createPendingOrder, updateOrder } from "@/lib/orders/store";
 import { createCheckoutSession, isPayMongoConfigured } from "@/lib/paymongo";
+import { createXenditPaymentSession, isXenditConfigured } from "@/lib/xendit";
 import { validateShippingAddress } from "@/lib/validators/shipping-address";
 import {
   releaseStockReservation,
@@ -23,31 +25,15 @@ interface CheckoutBody {
   orderNotes?: string;
 }
 
-function buildLineItems(
-  items: CartItem[],
-  subtotal: number,
-  discount: number,
-  shippingFee: number
-) {
-  const ratio = discount > 0 && subtotal > 0 ? (subtotal - discount) / subtotal : 1;
-
-  const lineItems = items.map((item) => ({
-    name: item.variantName ? `${item.title} — ${item.variantName}` : item.title,
-    amount: Math.max(100, Math.round(item.unitPrice * ratio)),
-    currency: "PHP",
-    quantity: item.qty,
-  }));
-
-  if (shippingFee > 0) {
-    lineItems.push({
-      name: "Shipping",
-      amount: shippingFee,
-      currency: "PHP",
-      quantity: 1,
-    });
+function splitCustomerName(fullName: string): { givenNames: string; surname: string } {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return { givenNames: parts[0], surname: "." };
   }
-
-  return lineItems;
+  return {
+    givenNames: parts.slice(0, -1).join(" "),
+    surname: parts[parts.length - 1],
+  };
 }
 
 export async function POST(request: Request) {
@@ -85,6 +71,8 @@ export async function POST(request: Request) {
       orderNotes: body.orderNotes,
     });
 
+    await saveOrderToFirestore(order);
+
     reservedOrderId = order.id;
 
     await reserveStockForOrder(
@@ -103,9 +91,21 @@ export async function POST(request: Request) {
     const successUrl = `${siteUrl}/checkout/success?order=${order.orderNumber}`;
     const cancelUrl = `${siteUrl}/checkout?cancelled=1&orderId=${order.id}`;
 
-    if (!isPayMongoConfigured()) {
+    const hasXendit = isXenditConfigured();
+    const hasPayMongo = isPayMongoConfigured();
+
+    if (!hasXendit && !hasPayMongo) {
       await fulfillOrderInventory(order.id, coupon?.code ?? null);
-      markOrderPaid(order.id);
+      const paidOrder = {
+        status: "paid" as const,
+        payment: {
+          ...order.payment,
+          status: "paid",
+          paidAt: new Date().toISOString(),
+        },
+      };
+      updateOrder(order.id, paidOrder);
+      await patchOrderInFirestore(order.id, paidOrder);
       reservedOrderId = null;
 
       return NextResponse.json({
@@ -113,16 +113,78 @@ export async function POST(request: Request) {
         orderId: order.id,
         orderNumber: order.orderNumber,
         checkoutUrl: successUrl,
-        message: "PayMongo not configured — demo checkout",
+        message: "No payment provider configured — demo checkout",
       });
     }
 
-    const lineItems = buildLineItems(
-      body.items,
-      totals.subtotal,
-      totals.discount,
-      totals.shippingFee
-    );
+    if (hasXendit) {
+      const { givenNames, surname } = splitCustomerName(body.shippingAddress.name);
+
+      const session = await createXenditPaymentSession({
+        referenceId: order.id,
+        amountCentavos: totals.total,
+        description: `Order ${order.orderNumber}${coupon ? ` (${coupon.code})` : ""}`,
+        successUrl,
+        cancelUrl,
+        customer: {
+          email: body.shippingAddress.email,
+          phone: body.shippingAddress.phone,
+          givenNames,
+          surname,
+        },
+        metadata: {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          couponCode: coupon?.code ?? "",
+        },
+      });
+
+      updateOrder(order.id, {
+        payment: {
+          ...order.payment,
+          provider: "xendit",
+          checkoutSessionId: session.sessionId,
+          status: "awaiting_payment",
+        },
+      });
+
+      await saveOrderToFirestore({
+        ...order,
+        payment: {
+          ...order.payment,
+          provider: "xendit",
+          checkoutSessionId: session.sessionId,
+          status: "awaiting_payment",
+        },
+      });
+
+      return NextResponse.json({
+        checkoutUrl: session.checkoutUrl,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        provider: "xendit",
+      });
+    }
+
+    const ratio = totals.discount > 0 && totals.subtotal > 0
+      ? (totals.subtotal - totals.discount) / totals.subtotal
+      : 1;
+
+    const lineItems = body.items.map((item) => ({
+      name: item.variantName ? `${item.title} — ${item.variantName}` : item.title,
+      amount: Math.max(100, Math.round(item.unitPrice * ratio)),
+      currency: "PHP",
+      quantity: item.qty,
+    }));
+
+    if (totals.shippingFee > 0) {
+      lineItems.push({
+        name: "Shipping",
+        amount: totals.shippingFee,
+        currency: "PHP",
+        quantity: 1,
+      });
+    }
 
     const session = await createCheckoutSession({
       lineItems,
@@ -140,6 +202,7 @@ export async function POST(request: Request) {
     updateOrder(order.id, {
       payment: {
         ...order.payment,
+        provider: "paymongo",
         checkoutSessionId: session.sessionId,
         status: "awaiting_payment",
       },
@@ -149,6 +212,7 @@ export async function POST(request: Request) {
       checkoutUrl: session.checkoutUrl,
       orderId: order.id,
       orderNumber: order.orderNumber,
+      provider: "paymongo",
     });
   } catch (err) {
     if (reservedOrderId) {

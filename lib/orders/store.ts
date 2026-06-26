@@ -36,7 +36,7 @@ export interface OrderRecord {
   orderNotes?: string;
   status: OrderStatus;
   payment: {
-    provider: "paymongo";
+    provider: "paymongo" | "xendit";
     checkoutSessionId: string | null;
     intentId: string | null;
     status: string;
@@ -135,12 +135,19 @@ export function updateOrder(
   return updated;
 }
 
-export function markOrderPaid(id: string, intentId?: string): OrderRecord | null {
+export function markOrderPaid(
+  id: string,
+  intentId?: string,
+  provider?: OrderRecord["payment"]["provider"]
+): OrderRecord | null {
+  const order = orders.get(id);
+  const paymentProvider = provider ?? order?.payment.provider ?? "paymongo";
+
   return updateOrder(id, {
     status: "paid",
     payment: {
-      provider: "paymongo",
-      checkoutSessionId: orders.get(id)?.payment.checkoutSessionId ?? null,
+      provider: paymentProvider,
+      checkoutSessionId: order?.payment.checkoutSessionId ?? null,
       intentId: intentId ?? null,
       status: "paid",
       paidAt: new Date().toISOString(),
