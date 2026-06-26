@@ -32,6 +32,15 @@ export default function CheckoutSuccessContent() {
 
   useEffect(() => {
     if (!orderNumber) return;
+
+    fetch("/api/checkout/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderNumber }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+
     fetch(`/api/orders/${orderNumber}`)
       .then((r) => (r.ok ? r.json() : null))
       .then(setOrder)

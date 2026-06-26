@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getAllOrdersForAdmin } from "@/lib/firebase/firestore";
 import { formatPrice } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
@@ -44,6 +45,7 @@ export default function AdminOrdersPage() {
                 <th className="px-4 py-3 font-semibold text-ink">Date</th>
                 <th className="px-4 py-3 font-semibold text-ink">Status</th>
                 <th className="px-4 py-3 font-semibold text-ink">Total</th>
+                <th className="px-4 py-3 font-semibold text-ink" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border bg-surface">
@@ -58,6 +60,14 @@ export default function AdminOrdersPage() {
                     <Badge variant={o.status === "paid" ? "success" : "default"}>{o.status}</Badge>
                   </td>
                   <td className="px-4 py-3 tabular-nums font-medium">{formatPrice(o.total)}</td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/admin/orders/${o.id}`}
+                      className="font-sans text-sm font-medium text-primary-strong hover:underline"
+                    >
+                      View
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>

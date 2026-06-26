@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   setDoc,
@@ -13,6 +14,7 @@ import {
   type Timestamp,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
+import type { OrderRecord } from "@/lib/orders/store";
 import type { Review, ReviewInput } from "@/types/review";
 
 function tsToIso(value: unknown): string {
@@ -193,6 +195,32 @@ export async function getAllOrdersForAdmin(): Promise<
   } catch {
     return [];
   }
+}
+
+export async function getOrderByIdForAdmin(orderId: string): Promise<OrderRecord | null> {
+  const db = getFirebaseDb();
+  if (!db) return null;
+
+  const snap = await getDoc(doc(db, "orders", orderId));
+  if (!snap.exists()) return null;
+
+  return { id: snap.id, ...snap.data() } as OrderRecord;
+}
+
+export type AdminOrderUpdate = {
+  status?: OrderRecord["status"];
+  tracking?: OrderRecord["tracking"];
+  timeline?: OrderRecord["timeline"];
+};
+
+export async function updateOrderForAdmin(orderId: string, patch: AdminOrderUpdate): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) throw new Error("Firebase is not configured");
+
+  await updateDoc(doc(db, "orders", orderId), {
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export async function getUserOrdersByEmail(email: string): Promise<

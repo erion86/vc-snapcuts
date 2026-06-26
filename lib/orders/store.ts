@@ -42,6 +42,8 @@ export interface OrderRecord {
     status: string;
     paidAt: string | null;
   };
+  tracking: { courier: string; number: string } | null;
+  timeline: { status: string; at: string; note?: string }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -101,6 +103,8 @@ export function createPendingOrder(input: {
       status: "pending",
       paidAt: null,
     },
+    tracking: null,
+    timeline: [{ status: "pending", at: now }],
     createdAt: now,
     updatedAt: now,
   };
@@ -120,7 +124,9 @@ export function getOrderByNumber(orderNumber: string): OrderRecord | null {
 
 export function updateOrder(
   id: string,
-  patch: Partial<Pick<OrderRecord, "status" | "payment" | "updatedAt">>
+  patch: Partial<
+    Pick<OrderRecord, "status" | "payment" | "tracking" | "timeline" | "updatedAt">
+  >
 ): OrderRecord | null {
   const order = orders.get(id);
   if (!order) return null;
@@ -128,6 +134,8 @@ export function updateOrder(
     ...order,
     ...patch,
     payment: patch.payment ? { ...order.payment, ...patch.payment } : order.payment,
+    tracking: patch.tracking !== undefined ? patch.tracking : order.tracking,
+    timeline: patch.timeline ?? order.timeline,
     updatedAt: new Date().toISOString(),
   };
   orders.set(id, updated);

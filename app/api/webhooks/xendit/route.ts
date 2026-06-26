@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { fulfillOrderInventory } from "@/lib/checkout/fulfill-order";
+import { completePaidOrder } from "@/lib/checkout/complete-paid-order";
+import { fetchOrderByIdFromFirestore } from "@/lib/db/firestore-orders";
 import {
   parseXenditWebhookEvent,
   verifyXenditWebhookToken,
 } from "@/lib/xendit";
-import { fetchOrderByIdFromFirestore, patchOrderInFirestore } from "@/lib/db/firestore-orders";
-import { getOrderById, markOrderPaid, updateOrder } from "@/lib/orders/store";
+import { getOrderById } from "@/lib/orders/store";
 import { releaseStockReservation } from "@/lib/inventory/stock-reservation";
+import { patchOrderInFirestore } from "@/lib/db/firestore-orders";
 
 async function resolveOrder(orderId: string) {
   return (await fetchOrderByIdFromFirestore(orderId)) ?? getOrderById(orderId);
@@ -14,12 +15,43 @@ async function resolveOrder(orderId: string) {
 
 export async function POST(request: Request) {
   if (!verifyXenditWebhookToken(request)) {
+    // #region agent log
+    fetch("http://127.0.0.1:7690/ingest/c9d741a0-7459-4973-bdd9-4faf8c080522", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "356ec0" },
+      body: JSON.stringify({
+        sessionId: "356ec0",
+        runId: "fulfillment-fix",
+        hypothesisId: "D",
+        location: "webhooks/xendit:auth-fail",
+        message: "Webhook token rejected",
+        data: {},
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     return NextResponse.json({ error: "Invalid webhook token" }, { status: 401 });
   }
 
   try {
     const payload = await request.json();
-    const { event, referenceId } = parseXenditWebhookEvent(payload);
+    const { event, referenceId, paymentId } = parseXenditWebhookEvent(payload);
+
+    // #region agent log
+    fetch("http://127.0.0.1:7690/ingest/c9d741a0-7459-4973-bdd9-4faf8c080522", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "356ec0" },
+      body: JSON.stringify({
+        sessionId: "356ec0",
+        runId: "fulfillment-fix",
+        hypothesisId: "A",
+        location: "webhooks/xendit:received",
+        message: "Webhook received",
+        data: { event, hasReferenceId: Boolean(referenceId), hasPaymentId: Boolean(paymentId) },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
 
     if (!referenceId) {
       return NextResponse.json({ received: true, skipped: "no reference_id" });
@@ -28,37 +60,49 @@ export async function POST(request: Request) {
     if (event === "payment_session.completed") {
       const order = await resolveOrder(referenceId);
 
-      if (order && order.status !== "paid") {
+      if (order) {
         try {
-          await fulfillOrderInventory(referenceId, order.coupon?.code ?? null);
+          await completePaidOrder(referenceId, {
+            paymentId: paymentId ?? undefined,
+            provider: "xendit",
+            note: "Payment confirmed via Xendit webhook",
+          });
 
-          const paidAt = new Date().toISOString();
-          const paymentPatch = {
-            status: "paid" as const,
-            payment: {
-              ...order.payment,
-              provider: "xendit" as const,
-              status: "paid",
-              paidAt,
-            },
-          };
-
-          await patchOrderInFirestore(referenceId, paymentPatch);
-          markOrderPaid(referenceId, undefined, "xendit");
-          updateOrder(referenceId, paymentPatch);
+          // #region agent log
+          fetch("http://127.0.0.1:7690/ingest/c9d741a0-7459-4973-bdd9-4faf8c080522", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "356ec0" },
+            body: JSON.stringify({
+              sessionId: "356ec0",
+              runId: "fulfillment-fix",
+              hypothesisId: "B",
+              location: "webhooks/xendit:fulfilled",
+              message: "Webhook fulfillment succeeded",
+              data: { orderId: referenceId },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {});
+          // #endregion
         } catch (err) {
           const message = err instanceof Error ? err.message : "Fulfillment failed";
-          const failPatch = {
-            payment: {
-              ...order.payment,
-              provider: "xendit" as const,
-              status: "paid_fulfillment_failed",
-              paidAt: new Date().toISOString(),
-            },
-          };
-          await patchOrderInFirestore(referenceId, failPatch);
-          updateOrder(referenceId, failPatch);
           console.error(`Order ${referenceId} paid but fulfillment failed:`, message);
+
+          // #region agent log
+          fetch("http://127.0.0.1:7690/ingest/c9d741a0-7459-4973-bdd9-4faf8c080522", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "356ec0" },
+            body: JSON.stringify({
+              sessionId: "356ec0",
+              runId: "fulfillment-fix",
+              hypothesisId: "C",
+              location: "webhooks/xendit:fulfillment-fail",
+              message: "Webhook fulfillment failed",
+              data: { orderId: referenceId, error: message },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {});
+          // #endregion
+
           return NextResponse.json({ error: message }, { status: 500 });
         }
       }
@@ -69,13 +113,6 @@ export async function POST(request: Request) {
       if (order && order.status === "pending") {
         await releaseStockReservation(referenceId);
         await patchOrderInFirestore(referenceId, {
-          payment: {
-            ...order.payment,
-            provider: "xendit",
-            status: "expired",
-          },
-        });
-        updateOrder(referenceId, {
           payment: {
             ...order.payment,
             provider: "xendit",

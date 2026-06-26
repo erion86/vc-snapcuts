@@ -129,6 +129,28 @@ export async function createXenditPaymentSession(
   return { checkoutUrl, sessionId };
 }
 
+export async function getXenditPaymentSession(
+  sessionId: string
+): Promise<{ status: string; referenceId: string; paymentId: string | null }> {
+  const res = await fetch(`${XENDIT_API}/sessions/${encodeURIComponent(sessionId)}`, {
+    method: "GET",
+    headers: { Authorization: authHeader() },
+  });
+
+  const json = (await res.json()) as Record<string, unknown>;
+
+  if (!res.ok) {
+    const err = json as { message?: string };
+    throw new Error(err.message ?? "Failed to fetch Xendit payment session");
+  }
+
+  return {
+    status: String(json.status ?? ""),
+    referenceId: String(json.reference_id ?? ""),
+    paymentId: (json.payment_id as string | null) ?? null,
+  };
+}
+
 function formatPhilippinesMobile(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (digits.startsWith("63")) return `+${digits}`;
@@ -152,12 +174,14 @@ export function parseXenditWebhookEvent(payload: unknown): {
   event: string;
   referenceId: string | null;
   sessionId: string | null;
+  paymentId: string | null;
 } {
   const body = payload as {
     event?: string;
     data?: {
       reference_id?: string;
       payment_session_id?: string;
+      payment_id?: string;
     };
   };
 
@@ -165,5 +189,6 @@ export function parseXenditWebhookEvent(payload: unknown): {
     event: body.event ?? "",
     referenceId: body.data?.reference_id ?? null,
     sessionId: body.data?.payment_session_id ?? null,
+    paymentId: body.data?.payment_id ?? null,
   };
 }

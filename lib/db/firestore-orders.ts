@@ -43,7 +43,9 @@ export async function fetchOrderByNumberFromFirestore(
 
 export async function patchOrderInFirestore(
   id: string,
-  patch: Partial<Pick<OrderRecord, "status" | "payment" | "updatedAt">>
+  patch: Partial<
+    Pick<OrderRecord, "status" | "payment" | "tracking" | "timeline" | "updatedAt">
+  >
 ): Promise<OrderRecord | null> {
   const db = getAdminFirestore();
   if (!db) return null;
@@ -57,6 +59,8 @@ export async function patchOrderInFirestore(
     ...existing,
     ...patch,
     payment: patch.payment ? { ...existing.payment, ...patch.payment } : existing.payment,
+    tracking: patch.tracking !== undefined ? patch.tracking : existing.tracking ?? null,
+    timeline: patch.timeline ?? existing.timeline ?? [],
     updatedAt: new Date().toISOString(),
   };
 
