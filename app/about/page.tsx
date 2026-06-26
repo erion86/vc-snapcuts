@@ -21,7 +21,7 @@ export default function AboutPage() {
               Our story
             </p>
             <h1 className="font-display text-display-lg text-ink mb-6">
-              Handmade to be held
+              Little Things, Made with Love
             </h1>
             <div className="font-sans text-ink-soft leading-relaxed space-y-4">
               <p>
