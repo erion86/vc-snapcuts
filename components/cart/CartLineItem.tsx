@@ -13,6 +13,7 @@ interface CartLineItemProps {
 
 export function CartLineItem({ item }: CartLineItemProps) {
   const { updateQty, removeItem } = useCart();
+  const atMax = item.qty >= item.maxStock;
 
   return (
     <li className="flex gap-3">
@@ -61,7 +62,8 @@ export function CartLineItem({ item }: CartLineItemProps) {
             <button
               type="button"
               onClick={() => updateQty(item.productId, item.variantId, item.qty + 1)}
-              className="inline-flex h-8 w-8 items-center justify-center hover:bg-surface-alt"
+              disabled={atMax}
+              className="inline-flex h-8 w-8 items-center justify-center hover:bg-surface-alt disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label="Increase quantity"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -77,6 +79,10 @@ export function CartLineItem({ item }: CartLineItemProps) {
             <Trash2 className="h-4 w-4" />
           </button>
         </div>
+
+        {atMax && item.maxStock <= 10 && (
+          <p className="font-sans text-xs text-ink-soft">Max {item.maxStock} in stock</p>
+        )}
       </div>
     </li>
   );

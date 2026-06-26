@@ -60,6 +60,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /stockReservations/{orderId} {
+      allow read, write: if false;
+    }
+
     match /newsletter/{email} {
       allow create: if request.resource.data.email == email &&
         request.resource.data.consent == true;

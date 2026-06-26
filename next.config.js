@@ -32,6 +32,8 @@ const nextConfig = {
     serverActions: {
       allowedOrigins: ["localhost:3000"],
     },
+    // Keep firebase-admin out of the webpack bundle (server-only native deps)
+    serverComponentsExternalPackages: ["firebase-admin"],
   },
 
   // ── Security headers ──────────────────────────────────────────────

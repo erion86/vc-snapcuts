@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     const code = typeof body.code === "string" ? body.code : "";
     const subtotal = typeof body.subtotal === "number" ? body.subtotal : 0;
 
-    const result = validateCoupon(code, subtotal);
+    const result = await validateCoupon(code, subtotal);
     return NextResponse.json(result);
   } catch {
     return NextResponse.json(

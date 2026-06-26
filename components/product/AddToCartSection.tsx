@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Minus, Plus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/hooks/useCart";
+import { resolveLineStock } from "@/lib/inventory/stock";
 import type { Product, ProductVariant } from "@/types/product";
 
 interface QuantityStepperProps {
@@ -55,24 +56,48 @@ interface AddToCartSectionProps {
 export function AddToCartSection({ product, variant, inStock }: AddToCartSectionProps) {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
+
+  const maxStock = resolveLineStock(product, variant?.id ?? null);
+  const cartKey = `${product.id}:${variant?.id ?? "default"}`;
+  const inCartQty =
+    items.find((i) => `${i.productId}:${i.variantId ?? "default"}` === cartKey)?.qty ?? 0;
+  const remaining = Math.max(0, maxStock - inCartQty);
+  const canAdd = inStock && remaining > 0;
+  const maxSelectable = remaining > 0 ? remaining : 1;
+
+  useEffect(() => {
+    if (qty > maxSelectable) setQty(maxSelectable);
+  }, [qty, maxSelectable]);
 
   function handleAdd() {
-    addItem({ product, variant, qty });
-    setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
+    if (!canAdd) return;
+    const addedOk = addItem({ product, variant, qty: Math.min(qty, remaining) });
+    if (addedOk) {
+      setAdded(true);
+      setTimeout(() => setAdded(false), 2000);
+    }
   }
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
         <span className="font-sans text-sm font-semibold text-ink">Qty</span>
-        <QuantityStepper value={qty} onChange={setQty} max={inStock ? 99 : 0} />
+        <QuantityStepper
+          value={canAdd ? qty : 0}
+          onChange={setQty}
+          min={1}
+          max={maxSelectable}
+        />
       </div>
+
+      {canAdd && maxStock <= 5 && (
+        <p className="font-sans text-xs text-ink-soft">Only {remaining} left in stock</p>
+      )}
 
       <button
         type="button"
-        disabled={!inStock}
+        disabled={!canAdd}
         onClick={handleAdd}
         className={cn(
           "w-full h-12 rounded-2xl font-sans font-semibold text-base transition-all inline-flex items-center justify-center gap-2",
@@ -88,8 +113,10 @@ export function AddToCartSection({ product, variant, inStock }: AddToCartSection
             <Check className="h-5 w-5" />
             Added to bag
           </>
-        ) : inStock ? (
+        ) : canAdd ? (
           "Add to Cart"
+        ) : inCartQty >= maxStock && maxStock > 0 ? (
+          "Max quantity in bag"
         ) : (
           "Out of Stock"
         )}

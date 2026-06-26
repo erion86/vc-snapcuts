@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { LayoutDashboard, Package, ShoppingCart, Star, ArrowLeft } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, Star, ArrowLeft, Ticket } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ const adminNav = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/products",  label: "Products",  icon: Package },
   { href: "/admin/orders",    label: "Orders",    icon: ShoppingCart },
+  { href: "/admin/coupons",   label: "Coupons",   icon: Ticket },
   { href: "/admin/reviews",   label: "Reviews",   icon: Star },
 ];
 
@@ -63,7 +64,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   href={href}
                   className={cn(
                     "inline-flex items-center gap-2 font-sans text-sm font-medium px-3 py-2.5 rounded-xl whitespace-nowrap transition-colors",
-                    pathname === href
+                    pathname === href || pathname.startsWith(`${href}/`)
                       ? "bg-primary/10 text-ink"
                       : "text-ink-soft hover:bg-surface-alt hover:text-ink"
                   )}

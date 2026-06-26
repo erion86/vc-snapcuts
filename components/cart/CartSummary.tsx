@@ -12,7 +12,7 @@ interface CartSummaryProps {
 }
 
 export function CartSummary({ showCheckout = true, compact = false }: CartSummaryProps) {
-  const { totals, coupon } = useCart();
+  const { totals, coupon, closeDrawer } = useCart();
 
   return (
     <div className={cn("flex flex-col gap-4", !compact && "p-5 bg-surface-alt rounded-2xl border border-border")}>
@@ -46,7 +46,9 @@ export function CartSummary({ showCheckout = true, compact = false }: CartSummar
 
       {showCheckout && (
         <Button size="lg" className="w-full" asChild>
-          <Link href="/checkout">Checkout</Link>
+          <Link href="/checkout" onClick={closeDrawer}>
+            Checkout
+          </Link>
         </Button>
       )}
     </div>

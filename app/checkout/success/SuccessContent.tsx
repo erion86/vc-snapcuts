@@ -26,6 +26,7 @@ export default function CheckoutSuccessContent() {
   const [order, setOrder] = useState<OrderSummary | null>(null);
 
   useEffect(() => {
+    sessionStorage.removeItem("vc-snapcuts-pending-order");
     clearCart();
   }, [clearCart]);
 

@@ -1,21 +1,34 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useWishlist } from "@/context/WishlistProvider";
-import { seedProducts } from "@/lib/data/seed-products";
+import { getProductsByIdsClient } from "@/lib/firebase/products-client";
 import { ProductCard } from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/Button";
+import type { Product } from "@/types/product";
 
 export default function WishlistPage() {
-  const { productIds, loading } = useWishlist();
+  const { productIds, loading: wishlistLoading } = useWishlist();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const products = useMemo(
-    () => seedProducts.filter((p) => productIds.includes(p.id) && p.status === "active"),
-    [productIds]
-  );
+  useEffect(() => {
+    if (wishlistLoading) return;
 
-  if (loading) return <div className="skeleton h-40 rounded-2xl" />;
+    if (productIds.length === 0) {
+      setProducts([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    getProductsByIdsClient(productIds)
+      .then(setProducts)
+      .finally(() => setLoading(false));
+  }, [productIds, wishlistLoading]);
+
+  if (wishlistLoading || loading) return <div className="skeleton h-40 rounded-2xl" />;
 
   return (
     <div>

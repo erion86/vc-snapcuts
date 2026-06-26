@@ -1,5 +1,7 @@
 export type ProductStatus = "active" | "draft" | "archived";
 
+export type ProductSort = "new" | "price-asc" | "price-desc" | "rating" | "title";
+
 export interface ProductImage {
   publicId: string;
   alt: string;

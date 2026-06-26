@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { markOrderPaid } from "@/lib/orders/store";
+import { fulfillOrderInventory } from "@/lib/checkout/fulfill-order";
+import { getOrderById, markOrderPaid, updateOrder } from "@/lib/orders/store";
 
 /**
  * PayMongo webhook handler.
- * Marks order as paid on successful payment event.
- * Stock decrement via Firestore transaction will be added when Firebase Admin is wired.
+ * Fulfills inventory (stock + coupon) atomically, then marks order paid.
  */
 export async function POST(request: Request) {
   try {
@@ -17,13 +17,32 @@ export async function POST(request: Request) {
       const orderId = metadata?.orderId as string | undefined;
 
       if (orderId) {
-        markOrderPaid(orderId, data?.id);
+        const order = getOrderById(orderId);
+        if (order && order.status !== "paid") {
+          try {
+            await fulfillOrderInventory(orderId, order.coupon?.code ?? null);
+            markOrderPaid(orderId, data?.id);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Fulfillment failed";
+            updateOrder(orderId, {
+              payment: {
+                ...order.payment,
+                status: "paid_fulfillment_failed",
+                intentId: data?.id ?? null,
+                paidAt: new Date().toISOString(),
+              },
+            });
+            console.error(`Order ${orderId} paid but fulfillment failed:`, message);
+            return NextResponse.json({ error: message }, { status: 500 });
+          }
+        }
       }
     }
 
     return NextResponse.json({ received: true });
-  } catch {
-    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Webhook processing failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

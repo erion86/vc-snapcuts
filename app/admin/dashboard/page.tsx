@@ -3,15 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getPendingReviews } from "@/lib/firebase/firestore";
-import { seedProducts } from "@/lib/data/seed-products";
+import { listAllProductsClient } from "@/lib/firebase/products-client";
 
 export default function AdminDashboardPage() {
   const [pendingReviews, setPendingReviews] = useState(0);
-  const lowStock = seedProducts.filter((p) => p.stock > 0 && p.stock <= 10).length;
-  const activeProducts = seedProducts.filter((p) => p.status === "active").length;
+  const [activeProducts, setActiveProducts] = useState(0);
+  const [lowStock, setLowStock] = useState(0);
 
   useEffect(() => {
     getPendingReviews().then((r) => setPendingReviews(r.length));
+
+    listAllProductsClient().then((products) => {
+      setActiveProducts(products.filter((p) => p.status === "active").length);
+      setLowStock(products.filter((p) => p.stock > 0 && p.stock <= 10).length);
+    });
   }, []);
 
   return (
@@ -25,12 +30,13 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="p-5 rounded-2xl border border-border bg-surface-alt">
-        <h2 className="font-sans text-sm font-semibold text-ink mb-2">Getting started as admin</h2>
+        <h2 className="font-sans text-sm font-semibold text-ink mb-2">Catalog</h2>
         <p className="font-sans text-sm text-ink-soft leading-relaxed">
-          Product catalog still reads from seed data. To approve reviews, use the Reviews tab.
-          Set your role to <code className="text-xs bg-surface px-1 rounded">admin</code> in Firestore{" "}
-          <code className="text-xs bg-surface px-1 rounded">users/{"{your uid}"}/role</code>.
-          Orders appear here once saved to Firestore at checkout.
+          Products are stored in Firestore. Add items from the{" "}
+          <Link href="/admin/products/new" className="text-primary hover:text-primary-strong">
+            Products
+          </Link>{" "}
+          tab — set status to <code className="text-xs bg-surface px-1 rounded">active</code> to publish to the shop.
         </p>
       </div>
     </div>

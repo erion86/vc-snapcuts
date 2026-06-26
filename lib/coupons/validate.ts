@@ -1,61 +1,45 @@
-import { calculateDiscount } from "@/lib/cart/calculate";
+import { fetchCouponByCodeFromFirestore } from "@/lib/db/firestore-coupons";
 import { seedCoupons } from "@/lib/data/seed-coupons";
-import type { AppliedCoupon } from "@/types/cart";
+import type { Coupon } from "@/types/coupon";
+import { validateCouponRecord, type CouponValidationResult } from "@/lib/coupons/validate-record";
 
-export interface CouponValidationResult {
-  valid: boolean;
-  coupon?: AppliedCoupon;
-  error?: string;
+export type { CouponValidationResult } from "@/lib/coupons/validate-record";
+
+function seedToCoupon(record: (typeof seedCoupons)[number]): Coupon {
+  return {
+    code: record.code,
+    type: record.type,
+    value: record.value,
+    minSpend: record.minSpend,
+    usageLimit: record.usageLimit,
+    usedCount: record.usedCount,
+    perUserLimit: record.perUserLimit,
+    startsAt: record.startsAt,
+    expiresAt: record.expiresAt,
+    appliesTo: record.appliesTo,
+    targetIds: record.targetIds,
+    active: record.active,
+  };
 }
 
-export function validateCoupon(code: string, subtotal: number): CouponValidationResult {
+export async function validateCoupon(
+  code: string,
+  subtotal: number
+): Promise<CouponValidationResult> {
   const normalized = code.trim().toUpperCase();
   if (!normalized) {
     return { valid: false, error: "Enter a coupon code" };
   }
 
-  const record = seedCoupons.find((c) => c.code === normalized);
-  if (!record) {
+  const fromFirestore = await fetchCouponByCodeFromFirestore(normalized);
+  if (fromFirestore) {
+    return validateCouponRecord(fromFirestore, subtotal);
+  }
+
+  const seed = seedCoupons.find((c) => c.code === normalized);
+  if (!seed) {
     return { valid: false, error: "Invalid coupon code" };
   }
 
-  if (!record.active) {
-    return { valid: false, error: "This coupon is no longer active" };
-  }
-
-  const now = Date.now();
-  if (now < new Date(record.startsAt).getTime()) {
-    return { valid: false, error: "This coupon is not valid yet" };
-  }
-  if (now > new Date(record.expiresAt).getTime()) {
-    return { valid: false, error: "This coupon has expired" };
-  }
-
-  if (record.usedCount >= record.usageLimit) {
-    return { valid: false, error: "This coupon has reached its usage limit" };
-  }
-
-  if (subtotal < record.minSpend) {
-    return {
-      valid: false,
-      error: `Minimum spend of ₱${(record.minSpend / 100).toFixed(0)} required`,
-    };
-  }
-
-  const applied: AppliedCoupon = {
-    code: record.code,
-    type: record.type,
-    value: record.value,
-    discountAmount:
-      record.type === "free_shipping"
-        ? 0
-        : calculateDiscount(subtotal, {
-            code: record.code,
-            type: record.type,
-            value: record.value,
-            discountAmount: 0,
-          }),
-  };
-
-  return { valid: true, coupon: applied };
+  return validateCouponRecord(seedToCoupon(seed), subtotal);
 }

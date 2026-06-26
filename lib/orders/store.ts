@@ -17,6 +17,7 @@ export interface OrderRecord {
   phone: string;
   items: {
     productId: string;
+    variantId: string | null;
     title: string;
     variantName: string | null;
     sku: string;
@@ -75,6 +76,7 @@ export function createPendingOrder(input: {
     phone: input.shippingAddress.phone,
     items: input.items.map((item) => ({
       productId: item.productId,
+      variantId: item.variantId,
       title: item.title,
       variantName: item.variantName,
       sku: item.sku,

@@ -8,6 +8,8 @@ export interface CartItem {
   qty: number;
   unitPrice: number;
   sku: string;
+  /** Max purchasable quantity based on live/last-known stock for this line */
+  maxStock: number;
 }
 
 export interface AppliedCoupon {

@@ -19,8 +19,14 @@ export default function cloudinaryLoader({
   width,
   quality = 80,
 }: CloudinaryLoaderProps): string {
-  // If it's already a full URL, return it unchanged
+  // Full URLs: apply width for Unsplash; pass through others
   if (src.startsWith("http://") || src.startsWith("https://")) {
+    if (src.includes("images.unsplash.com")) {
+      const url = new URL(src);
+      url.searchParams.set("w", String(width));
+      url.searchParams.set("q", String(quality));
+      return url.toString();
+    }
     return src;
   }
 

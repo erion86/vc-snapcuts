@@ -7,7 +7,7 @@ import { categories } from "@/config/site";
 import { cn } from "@/lib/utils";
 import { ProductCard } from "@/components/product/ProductCard";
 import type { Product } from "@/types/product";
-import type { ProductSort } from "@/lib/db/products";
+import type { ProductSort } from "@/types/product";
 
 interface ShopClientProps {
   products: Product[];

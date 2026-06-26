@@ -1,17 +1,6 @@
-export interface CouponRecord {
-  code: string;
-  type: "percent" | "fixed" | "free_shipping";
-  value: number;
-  minSpend: number;
-  usageLimit: number;
-  usedCount: number;
-  perUserLimit: number;
-  startsAt: string;
-  expiresAt: string;
-  appliesTo: "all" | "category" | "product";
-  targetIds: string[];
-  active: boolean;
-}
+import type { Coupon } from "@/types/coupon";
+
+export type CouponRecord = Coupon;
 
 export const seedCoupons: CouponRecord[] = [
   {
