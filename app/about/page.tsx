@@ -7,7 +7,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "About Us",
-  description: "Learn about V&C Snapcuts — handmade planners, stickers, and journals crafted in the Philippines.",
+  description: "V&C Snapcuts — cute, quality stationery for planning, crafting, and journaling, made with care and love.",
 };
 
 export default function AboutPage() {
@@ -25,17 +25,16 @@ export default function AboutPage() {
             </h1>
             <div className="font-sans text-ink-soft leading-relaxed space-y-4">
               <p>
-                V&amp;C Snapcuts started with a simple idea: stationery should feel as good as it looks.
-                Every planner, sticker sheet, and journal is crafted by hand in the Philippines —
-                designed for dreamers, makers, and everyday creatives.
+                V &amp; C Snapcuts began with a passion for stickers, journaling, and all things creative.
+                We wanted to share cute and quality stationery that makes planning, crafting, and journaling
+                more fun.
               </p>
               <p>
-                We believe in quiet luxury — soft colors, thoughtful layouts, and the kind of quality
-                you notice the moment you pick something up. No mass production, no rush. Just paper
-                goods made to be written in, stuck on, and loved for a long time.
+                What started as a small idea has grown into a business built with care, creativity, and love.
+                Every order means a lot to us, and we are grateful to everyone who supports our small business.
               </p>
               <p>
-                Thank you for supporting a small handmade business. Every order helps us keep creating.
+                We hope our products bring a little happiness to your everyday life. 💛
               </p>
             </div>
             <div className="mt-8">
