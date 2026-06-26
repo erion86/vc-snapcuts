@@ -105,6 +105,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
   const pathname = usePathname();
   const prevPathnameRef = useRef(pathname);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
   useEffect(() => {
     try {
@@ -139,12 +141,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [coupon, isHydrated]);
 
   const refreshCartStock = useCallback(async () => {
-    if (items.length === 0) return;
+    const currentItems = itemsRef.current;
+    if (currentItems.length === 0) return;
 
-    const productIds = Array.from(new Set(items.map((i) => i.productId)));
+    const productIds = Array.from(new Set(currentItems.map((i) => i.productId)));
     const products = await getProductsByIdsClient(productIds);
     setItems((prev) => mergeItemsWithCatalog(prev, products));
-  }, [items]);
+  }, []);
 
   useEffect(() => {
     if (!isHydrated || items.length === 0) return;

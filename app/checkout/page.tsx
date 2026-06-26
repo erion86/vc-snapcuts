@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/Header";
@@ -47,35 +47,62 @@ export default function CheckoutPage() {
     orderNotes: "",
   });
   const [addressErrors, setAddressErrors] = useState<ShippingAddressErrors>({});
+  const itemsRef = useRef(items);
+  const couponRef = useRef(coupon);
+  const validationEffectRunRef = useRef(0);
+  itemsRef.current = items;
+  couponRef.current = coupon;
 
   const runCheckoutValidation = useCallback(async () => {
-    if (items.length === 0) return { valid: false, errors: ["Your cart is empty"] };
+    const currentItems = itemsRef.current;
+    if (currentItems.length === 0) return { valid: false, errors: ["Your cart is empty"] };
 
     setValidating(true);
     try {
-      await refreshCartStock();
-
       const res = await fetch("/api/checkout/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items,
-          couponCode: coupon?.code ?? null,
+          items: currentItems,
+          couponCode: couponRef.current?.code ?? null,
         }),
       });
 
       const data = await res.json();
       const errors = (data.errors as string[]) ?? [];
+      const valid = Boolean(data.valid);
       setValidationErrors(errors);
-      setCheckoutReady(Boolean(data.valid));
+      setCheckoutReady(valid);
+
+      // #region agent log
+      fetch("http://127.0.0.1:7690/ingest/c9d741a0-7459-4973-bdd9-4faf8c080522", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "356ec0" },
+        body: JSON.stringify({
+          sessionId: "356ec0",
+          runId: "post-fix",
+          hypothesisId: "A-B-C",
+          location: "checkout/page.tsx:runCheckoutValidation",
+          message: "Validation finished",
+          data: { valid, errorCount: errors.length, itemCount: currentItems.length, hasCoupon: Boolean(couponRef.current) },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
 
       if (data.coupon) {
-        applyCoupon(data.coupon as AppliedCoupon);
-      } else if (coupon && errors.some((e) => e.toLowerCase().includes("coupon"))) {
+        const next = data.coupon as AppliedCoupon;
+        if (couponRef.current?.code !== next.code) {
+          applyCoupon(next);
+        }
+      } else if (
+        couponRef.current &&
+        errors.some((e) => e.toLowerCase().includes("coupon"))
+      ) {
         applyCoupon(null);
       }
 
-      return { valid: Boolean(data.valid), errors };
+      return { valid, errors };
     } catch {
       setCheckoutReady(false);
       setValidationErrors(["Could not verify stock and coupon. Try again."]);
@@ -83,7 +110,7 @@ export default function CheckoutPage() {
     } finally {
       setValidating(false);
     }
-  }, [items, coupon, applyCoupon, refreshCartStock]);
+  }, [applyCoupon]);
 
   useEffect(() => {
     if (searchParams.get("cancelled") !== "1") return;
@@ -107,13 +134,31 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (!isHydrated || step !== 3 || items.length === 0) return;
 
-    runCheckoutValidation();
+    validationEffectRunRef.current += 1;
+    // #region agent log
+    fetch("http://127.0.0.1:7690/ingest/c9d741a0-7459-4973-bdd9-4faf8c080522", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "356ec0" },
+      body: JSON.stringify({
+        sessionId: "356ec0",
+        runId: "post-fix",
+        hypothesisId: "A",
+        location: "checkout/page.tsx:step3-effect",
+        message: "Step 3 validation effect ran",
+        data: { runCount: validationEffectRunRef.current, itemCount: items.length },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
+    void refreshCartStock().then(() => runCheckoutValidation());
+
     const interval = setInterval(() => {
-      runCheckoutValidation();
+      void runCheckoutValidation();
     }, 30_000);
 
     return () => clearInterval(interval);
-  }, [isHydrated, step, items.length, runCheckoutValidation]);
+  }, [isHydrated, step, items.length, refreshCartStock, runCheckoutValidation]);
 
   function updateAddress(address: ShippingAddress) {
     setForm((f) => ({ ...f, address }));
@@ -344,7 +389,7 @@ export default function CheckoutPage() {
                     <Button
                       size="lg"
                       loading={loading}
-                      disabled={!checkoutReady || validating}
+                      disabled={!checkoutReady || loading}
                       onClick={() => void handlePayment()}
                     >
                       Pay {new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", maximumFractionDigits: 0 }).format(totals.total / 100)}

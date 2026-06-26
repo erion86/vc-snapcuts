@@ -42,12 +42,13 @@ export async function createXenditPaymentSession(
   input: CreateXenditPaymentSessionInput
 ): Promise<{ checkoutUrl: string; sessionId: string }> {
   const phone = formatPhilippinesMobile(input.customer.phone);
+  const amountPesos = Math.round(input.amountCentavos) / 100;
 
   const body = {
     reference_id: input.referenceId,
     session_type: "PAY",
     mode: "PAYMENT_LINK",
-    amount: String(input.amountCentavos),
+    amount: amountPesos,
     currency: "PHP",
     country: "PH",
     locale: "en",
@@ -67,6 +68,26 @@ export async function createXenditPaymentSession(
     },
   };
 
+  // #region agent log
+  fetch("http://127.0.0.1:7690/ingest/c9d741a0-7459-4973-bdd9-4faf8c080522", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "356ec0" },
+    body: JSON.stringify({
+      sessionId: "356ec0",
+      runId: "xendit-amount-fix",
+      hypothesisId: "E",
+      location: "lib/xendit.ts:createXenditPaymentSession",
+      message: "Xendit session amount payload",
+      data: {
+        amountType: typeof body.amount,
+        amountPesos: body.amount,
+        amountCentavos: input.amountCentavos,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+
   const res = await fetch(`${XENDIT_API}/sessions`, {
     method: "POST",
     headers: {
@@ -80,6 +101,21 @@ export async function createXenditPaymentSession(
 
   if (!res.ok) {
     const err = json as { message?: string; error_code?: string };
+    // #region agent log
+    fetch("http://127.0.0.1:7690/ingest/c9d741a0-7459-4973-bdd9-4faf8c080522", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "356ec0" },
+      body: JSON.stringify({
+        sessionId: "356ec0",
+        runId: "xendit-amount-fix",
+        hypothesisId: "E",
+        location: "lib/xendit.ts:createXenditPaymentSession:error",
+        message: "Xendit session create failed",
+        data: { status: res.status, errorMessage: err.message ?? err.error_code ?? "unknown" },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     throw new Error(err.message ?? err.error_code ?? "Xendit payment session failed");
   }
 
